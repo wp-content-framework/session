@@ -68,7 +68,7 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 * check
 	 */
 	private function check_session() {
-		if ( ! isset( $_SESSION ) ) {
+		if ( ! isset( $_SESSION ) && ! headers_sent() ) {
 			@session_start();
 		}
 		if ( isset( $_SESSION ) ) {
