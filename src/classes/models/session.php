@@ -21,32 +21,33 @@ if ( ! defined( 'WP_CONTENT_FRAMEWORK' ) ) {
 /**
  * Class Session
  * @package WP_Framework_Session\Classes\Models
+ * @SuppressWarnings(PHPMD.Superglobals)
  */
 class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_Core\Interfaces\Hook {
 
 	use Singleton, Hook, Package;
 
 	/**
-	 * @var bool $_session_initialized
+	 * @var bool $session_initialized
 	 */
-	private static $_session_initialized = false;
+	private static $session_initialized = false;
 
 	/**
-	 * @var bool $_is_valid_session
+	 * @var bool $is_valid_session
 	 */
-	private static $_is_valid_session = false;
+	private static $is_valid_session = false;
 
 	/**
-	 * @var bool $_session_regenerated
+	 * @var bool $session_regenerated
 	 */
-	private static $_session_regenerated = false;
+	private static $session_regenerated = false;
 
 	/**
 	 * initialize
 	 */
 	protected function initialize() {
-		if ( ! self::$_session_initialized ) {
-			self::$_session_initialized = true;
+		if ( ! self::$session_initialized ) {
+			self::$session_initialized = true;
 			$this->check_session();
 		}
 	}
@@ -72,10 +73,10 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 */
 	private function check_session() {
 		if ( ! isset( $_SESSION ) && ! headers_sent() ) {
-			@session_start();
+			@session_start(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		}
 		if ( isset( $_SESSION ) ) {
-			self::$_is_valid_session = true;
+			self::$is_valid_session = true;
 		}
 		$this->security_process();
 	}
@@ -88,7 +89,7 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 		if ( ! isset( $check ) ) {
 			$this->set( $this->get_user_check_name(), $this->app->user->user_id );
 		} else {
-			if ( $check != $this->app->user->user_id ) {
+			if ( (string) $check !== (string) $this->app->user->user_id ) {
 				// prevent session fixation
 				$this->regenerate();
 				$this->set( $this->get_user_check_name(), $this->app->user->user_id );
@@ -100,9 +101,9 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 * regenerate
 	 */
 	public function regenerate() {
-		if ( self::$_is_valid_session ) {
-			if ( ! self::$_session_regenerated ) {
-				self::$_session_regenerated = true;
+		if ( self::$is_valid_session ) {
+			if ( ! self::$session_regenerated ) {
+				self::$session_regenerated = true;
 				session_regenerate_id( true );
 			}
 		}
@@ -112,11 +113,11 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 * destroy
 	 */
 	public function destroy() {
-		if ( self::$_is_valid_session ) {
+		if ( self::$is_valid_session ) {
 			$_SESSION = [];
 			setcookie( session_name(), '', time() - 1, '/' );
 			session_destroy();
-			self::$_is_valid_session = false;
+			self::$is_valid_session = false;
 		}
 	}
 
@@ -125,7 +126,7 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 *
 	 * @return bool
 	 */
-	private function _expired( $data ) {
+	private function expired_internal( $data ) {
 		if ( ! isset( $data['expire'] ) ) {
 			return false;
 		}
@@ -140,12 +141,12 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 *
 	 * @return mixed
 	 */
-	private function _get( $key, $data, $default ) {
+	private function get_internal( $key, $data, $default ) {
 		if ( ! is_array( $data ) || ! array_key_exists( 'value', $data ) ) {
 			return $default;
 		}
-		if ( $this->_expired( $data ) ) {
-			$this->_delete( $key );
+		if ( $this->expired_internal( $data ) ) {
+			$this->delete_internal( $key );
 
 			return $default;
 		}
@@ -158,7 +159,7 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 * @param mixed $value
 	 * @param int|null $duration
 	 */
-	private function _set( $key, $value, $duration = null ) {
+	private function set_internal( $key, $value, $duration = null ) {
 		$data = [
 			'value' => $value,
 		];
@@ -171,7 +172,7 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	/**
 	 * @param string $key
 	 */
-	private function _delete( $key ) {
+	private function delete_internal( $key ) {
 		unset( $_SESSION[ $key ] );
 	}
 
@@ -181,7 +182,7 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 * @return bool
 	 */
 	public function expired( $key ) {
-		if ( ! self::$_is_valid_session ) {
+		if ( ! self::$is_valid_session ) {
 			return false;
 		}
 		$key = $this->get_session_key( $key );
@@ -189,7 +190,7 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 			return false;
 		}
 
-		return $this->_expired( $_SESSION[ $key ] );
+		return $this->expired_internal( $_SESSION[ $key ] );
 	}
 
 	/**
@@ -199,12 +200,12 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 * @return mixed
 	 */
 	public function get( $key, $default = null ) {
-		if ( ! self::$_is_valid_session ) {
+		if ( ! self::$is_valid_session ) {
 			return $default;
 		}
 		$key = $this->get_session_key( $key );
 		if ( array_key_exists( $key, $_SESSION ) ) {
-			return $this->_get( $key, $_SESSION[ $key ], $default );
+			return $this->get_internal( $key, $_SESSION[ $key ], $default );
 		}
 
 		return $default;
@@ -216,11 +217,11 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 * @param int|null $duration
 	 */
 	public function set( $key, $value, $duration = null ) {
-		if ( ! self::$_is_valid_session ) {
+		if ( ! self::$is_valid_session ) {
 			return;
 		}
 		$key = $this->get_session_key( $key );
-		$this->_set( $key, $value, $duration );
+		$this->set_internal( $key, $value, $duration );
 	}
 
 	/**
@@ -229,7 +230,7 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 	 * @return bool
 	 */
 	public function exists( $key ) {
-		if ( ! self::$_is_valid_session ) {
+		if ( ! self::$is_valid_session ) {
 			return false;
 		}
 
@@ -238,19 +239,19 @@ class Session implements \WP_Framework_Core\Interfaces\Singleton, \WP_Framework_
 			return false;
 		}
 
-		return ! $this->_expired( $_SESSION[ $key ] );
+		return ! $this->expired_internal( $_SESSION[ $key ] );
 	}
 
 	/**
 	 * @param string $key
 	 */
 	public function delete( $key ) {
-		if ( ! self::$_is_valid_session ) {
+		if ( ! self::$is_valid_session ) {
 			return;
 		}
 		$key = $this->get_session_key( $key );
 		if ( array_key_exists( $key, $_SESSION ) ) {
-			$this->_delete( $key );
+			$this->delete_internal( $key );
 		}
 	}
 }
